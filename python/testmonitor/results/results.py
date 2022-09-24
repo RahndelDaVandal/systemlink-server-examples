@@ -75,8 +75,7 @@ def build_power_measurement_params(power: float, low_limit: float, high_limit: f
         "comparisonType": "GELE"
     }
 
-    parameters = {"text": "", "parameters": [parameter]}
-    return parameters
+    return {"text": "", "parameters": [parameter]}
 
 
 def generate_step_data(
@@ -98,9 +97,9 @@ def generate_step_data(
     :param status:
     :return: The step data used to create a test step.
     """
-    step_status = status if status else StatusObject(status_type="RUNNING")
+    step_status = status or StatusObject(status_type="RUNNING")
 
-    step_data = TestStepRequestObject(
+    return TestStepRequestObject(
         step_id=None,
         parent_id=None,
         result_id=None,
@@ -113,10 +112,8 @@ def generate_step_data(
         step_type=step_type,
         total_time_in_seconds=random.uniform(0, 1) * 10,
         inputs=inputs,
-        outputs=outputs
+        outputs=outputs,
     )
-
-    return step_data
 
 
 def main():
@@ -151,7 +148,7 @@ def main():
     Simulate a sweep across a range of electrical current and voltage.
     For each value, calculate the electrical power (P=IV).
     """
-    for current in range(0, 10):
+    for current in range(10):
         # Generate a parent step to represent a sweep of voltages at a given current.
         voltage_sweep_step_data = generate_step_data("Voltage Sweep", "SequenceCall")
         voltage_sweep_step_data.result_id = test_result.id
@@ -162,7 +159,7 @@ def main():
         response = await steps_api.create_steps_v2(create_steps_request)
         voltage_sweep_step = response.steps[0]
 
-        for voltage in range(0, 10):
+        for voltage in range(10):
             # Simulate obtaining a power measurement.
             power, inputs, outputs = measure_power(current, voltage)
 
@@ -184,10 +181,10 @@ def main():
                 steps=[measure_power_output_step_data], update_result_total_time=True
             )
             response = await steps_api.create_steps_v2(create_steps_request)
-            measure_power_output_step = response.steps[0]
-
             # If a test in the sweep fails, the entire sweep failed.  Mark the parent step accordingly.
             if status.status_type == "FAILED":
+                measure_power_output_step = response.steps[0]
+
                 voltage_sweep_step.status = StatusObject(status_type="FAILED")
                 # Update the parent test step's status on the SystemLink server.
                 update_steps_request = TestStepCreateOrUpdateRequestObject(
